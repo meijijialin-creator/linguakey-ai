@@ -89,8 +89,8 @@ async function translateText(){
    headers:{"Content-Type":"application/json"},
    body:JSON.stringify({
     text,
-    from:document.getElementById("from").value,
-    to:document.getElementById("to").value
+    source:document.getElementById("from").value,
+target:document.getElementById("to").value
    })
   });
   const data=await response.json();
