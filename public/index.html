@@ -23,14 +23,53 @@ const from=document.getElementById('from'),to=document.getElementById('to');let 
 const layouts={zh:['qwertyuiop','asdfghjkl','zxcvbnm'],en:['qwertyuiop','asdfghjkl','zxcvbnm'],ja:['qwertyuiop','asdfghjkl','zxcvbnm'],ko:['ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ','ㅁㄴㅇㄹㅎㅗㅓㅏㅣ','ㅋㅌㅊㅍㅠㅜㅡ']};
 const labels={zh:'中文 · 拼音字母',ko:'한국어 · 두벌식 자모',en:'English · QWERTY',ja:'日本語 · ローマ字'};
 function toast(message){const el=document.getElementById('toast');el.textContent=message;el.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.style.display='none',2600)}
-function insertText(text){const a=input.selectionStart,b=input.selectionEnd;input.setRangeText(text,a,b,'end');input.focus();updateCount()}
-function backspace(){const a=input.selectionStart,b=input.selectionEnd;if(a!==b){input.setRangeText('',a,b,'end')}else if(a>0){input.setRangeText('',a-1,a,'end')}input.focus();updateCount()}
-function renderKeyboard(){keyboard.innerHTML='';const lang=from.value;document.getElementById('keyboardLabel').textContent=labels[lang];for(const letters of layouts[lang]){const row=document.createElement('div');row.className='keyrow';for(const ch of Array.from(letters)){const key=document.createElement('button');key.type='button';key.className='key';key.textContent=ch;key.addEventListener('click',()=>insertText(ch));row.appendChild(key)}keyboard.appendChild(row)}const last=document.createElement('div');last.className='keyrow';const space=document.createElement('button');space.className='key space special';space.textContent='SPACE';space.onclick=()=>insertText(' ');const back=document.createElement('button');back.className='key special';back.textContent='⌫ 删除';back.onclick=backspace;const enter=document.createElement('button');enter.className='key special';enter.textContent='↵ 换行';enter.onclick=()=>insertText('\n');last.append(space,back,enter);keyboard.appendChild(last);document.getElementById('keyboardNote').textContent=lang==='ko'?'虚拟键盘可输入韩文字母；完整韩文音节组合请使用电脑韩语输入法。':lang==='ja'?'虚拟键盘输入罗马字；转换假名请使用电脑日语输入法。':lang==='zh'?'虚拟键盘输入拼音字母；选择汉字请使用电脑中文输入法。':'点击虚拟键盘或使用电脑实体键盘输入。'}
+// Korean two-set virtual keyboard composition (Unicode Hangul syllables).
+const L=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const V=['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+const T=['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const vowels=new Set(V), consonants=new Set(L);
+const vowelJoin={'ㅗㅏ':'ㅘ','ㅗㅐ':'ㅙ','ㅗㅣ':'ㅚ','ㅜㅓ':'ㅝ','ㅜㅔ':'ㅞ','ㅜㅣ':'ㅟ','ㅡㅣ':'ㅢ','ㅘㅣ':'ㅙ','ㅝㅣ':'ㅞ'};
+const finalJoin={'ㄱㅅ':'ㄳ','ㄴㅈ':'ㄵ','ㄴㅎ':'ㄶ','ㄹㄱ':'ㄺ','ㄹㅁ':'ㄻ','ㄹㅂ':'ㄼ','ㄹㅅ':'ㄽ','ㄹㅌ':'ㄾ','ㄹㅍ':'ㄿ','ㄹㅎ':'ㅀ','ㅂㅅ':'ㅄ'};
+const finalSplit={'ㄳ':['ㄱ','ㅅ'],'ㄵ':['ㄴ','ㅈ'],'ㄶ':['ㄴ','ㅎ'],'ㄺ':['ㄹ','ㄱ'],'ㄻ':['ㄹ','ㅁ'],'ㄼ':['ㄹ','ㅂ'],'ㄽ':['ㄹ','ㅅ'],'ㄾ':['ㄹ','ㅌ'],'ㄿ':['ㄹ','ㅍ'],'ㅀ':['ㄹ','ㅎ'],'ㅄ':['ㅂ','ㅅ']};
+let hangul=null; // {l,v,t,start,end}; tracks only virtual-keyboard composition.
+function syllable(l,v,t=''){if(v===null)return l;if(!L.includes(l))return v;return String.fromCharCode(0xAC00+(L.indexOf(l)*21+V.indexOf(v))*28+T.indexOf(t))}
+function commitHangul(){hangul=null}
+function paintHangul(){if(!hangul)return;const txt=syllable(hangul.l,hangul.v,hangul.t);input.setRangeText(txt,hangul.start,hangul.end,'end');hangul.end=hangul.start+txt.length;updateCount()}
+function beginHangul(ch){const pos=input.selectionStart;hangul={l:ch,v:null,t:'',start:pos,end:pos};paintHangul()}
+function insertHangul(ch){
+ if(input.selectionStart!==input.selectionEnd || (hangul&&input.selectionStart!==hangul.end))commitHangul();
+ if(!hangul){beginHangul(ch);input.focus();return}
+ if(vowels.has(ch)){
+  if(hangul.v===null){if(consonants.has(hangul.l)){hangul.v=ch;paintHangul()}else{commitHangul();beginHangul(ch)}}
+  else if(hangul.t){const old=hangul.t,parts=finalSplit[old];hangul.t=parts?parts[0]:'';const next=parts?parts[1]:old;paintHangul();commitHangul();beginHangul(next);hangul.v=ch;paintHangul()}
+  else {const combined=vowelJoin[hangul.v+ch];if(combined){hangul.v=combined;paintHangul()}else{commitHangul();beginHangul(ch)}}
+ }else{
+  if(hangul.v!==null && T.includes(ch)){
+   if(!hangul.t){hangul.t=ch;paintHangul()}
+   else if(finalJoin[hangul.t+ch]){hangul.t=finalJoin[hangul.t+ch];paintHangul()}
+   else{commitHangul();beginHangul(ch)}
+  }else{commitHangul();beginHangul(ch)}
+ }
+ input.focus()
+}
+function insertText(text){
+ if(from.value==='ko' && text.length===1 && (vowels.has(text)||consonants.has(text))){insertHangul(text);return}
+ commitHangul();const a=input.selectionStart,b=input.selectionEnd;input.setRangeText(text,a,b,'end');input.focus();updateCount()
+}
+function backspace(){
+ if(hangul&&input.selectionStart===hangul.end){
+  if(hangul.t){hangul.t=finalSplit[hangul.t]?.[0]||'';paintHangul();return}
+  if(hangul.v!==null){const rev=Object.entries(vowelJoin).find(([k,v])=>v===hangul.v);if(rev){hangul.v=rev[0][0]}else{hangul.v=null}paintHangul();return}
+  input.setRangeText('',hangul.start,hangul.end,'end');commitHangul();updateCount();return
+ }
+ commitHangul();const a=input.selectionStart,b=input.selectionEnd;if(a!==b){input.setRangeText('',a,b,'end')}else if(a>0){input.setRangeText('',a-1,a,'end')}input.focus();updateCount()
+}
+function renderKeyboard(){keyboard.innerHTML='';const lang=from.value;document.getElementById('keyboardLabel').textContent=labels[lang];for(const letters of layouts[lang]){const row=document.createElement('div');row.className='keyrow';for(const ch of Array.from(letters)){const key=document.createElement('button');key.type='button';key.className='key';key.textContent=ch;key.addEventListener('click',()=>insertText(ch));row.appendChild(key)}keyboard.appendChild(row)}const last=document.createElement('div');last.className='keyrow';const space=document.createElement('button');space.className='key space special';space.textContent='SPACE';space.onclick=()=>insertText(' ');const back=document.createElement('button');back.className='key special';back.textContent='⌫ 删除';back.onclick=backspace;const enter=document.createElement('button');enter.className='key special';enter.textContent='↵ 换行';enter.onclick=()=>insertText('\n');last.append(space,back,enter);keyboard.appendChild(last);document.getElementById('keyboardNote').textContent=lang==='ko'?'支持虚拟键盘韩文音节组合：ㅇ + ㅏ + ㄴ → 안。实体键盘请使用系统韩语输入法。':lang==='ja'?'虚拟键盘输入罗马字；转换假名请使用电脑日语输入法。':lang==='zh'?'虚拟键盘输入拼音字母；选择汉字请使用电脑中文输入法。':'点击虚拟键盘或使用电脑实体键盘输入。'}
 function updateCount(){document.getElementById('count').textContent=input.value.length+' / 5000'}
-function clearInput(){input.value='';output.value='';document.getElementById('status').textContent='准备就绪';updateCount();input.focus()}
-function swap(){const x=from.value;from.value=to.value;to.value=x;const old=input.value;if(output.value&&!output.value.startsWith('翻译失败')){input.value=output.value;output.value=old}renderKeyboard();updateCount()}
+function clearInput(){commitHangul();input.value='';output.value='';document.getElementById('status').textContent='准备就绪';updateCount();input.focus()}
+function swap(){commitHangul();const x=from.value;from.value=to.value;to.value=x;const old=input.value;if(output.value&&!output.value.startsWith('翻译失败')){input.value=output.value;output.value=old}renderKeyboard();updateCount()}
 function setTone(tone){currentTone=tone;document.querySelectorAll('.tone').forEach(b=>b.classList.toggle('active',b.dataset.tone===tone))}
 async function translateText(){const text=input.value.trim();if(!text){toast('请先输入需要翻译的内容');input.focus();return}const btn=document.getElementById('translateButton');btn.disabled=true;btn.textContent='正在翻译…';output.value='';document.getElementById('status').textContent='AI 正在组织语言…';try{const response=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,source:from.value,target:to.value,tone:currentTone})});const data=await response.json();if(!response.ok)throw new Error(data.error||'服务器暂时不可用');output.value=data.translation||'';document.getElementById('status').textContent=output.value?'翻译完成 ✓':'未收到译文'}catch(error){document.getElementById('status').textContent='翻译失败';output.value='翻译失败：'+error.message}finally{btn.disabled=false;btn.textContent='✦ 开始 AI 翻译 →'}}
 async function copyText(){if(!output.value){toast('目前没有可复制的译文');return}try{await navigator.clipboard.writeText(output.value);toast('译文已复制 ✓')}catch(error){output.focus();output.select();toast('请按 ⌘C / Ctrl+C 复制选中文字')}}
-from.addEventListener('change',renderKeyboard);input.addEventListener('input',updateCount);renderKeyboard();updateCount();
+from.addEventListener('change',()=>{commitHangul();renderKeyboard()});input.addEventListener('input',()=>{if(hangul&&input.selectionStart!==hangul.end)commitHangul();updateCount()});input.addEventListener('click',()=>{if(hangul&&input.selectionStart!==hangul.end)commitHangul()});renderKeyboard();updateCount();
 </script></body></html>
