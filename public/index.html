@@ -1,6 +1,110 @@
-linguakey-ai/
-├── public/
-│   └── index.html
-├── README.md
-├── package.json
-└── server.js
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinguaKey AI</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f8;font-family:Arial,sans-serif;color:#24243b}
+main{max-width:620px;margin:45px auto;padding:25px}
+h1{text-align:center;color:#6555d9}
+.sub{text-align:center;color:#777}
+.panel{background:white;padding:25px;border-radius:20px;box-shadow:0 10px 30px #2221}
+label{display:block;margin:14px 0 8px;font-weight:bold}
+select,textarea{width:100%;padding:13px;border:1px solid #ddd;border-radius:10px;font-size:16px}
+textarea{height:120px;resize:vertical}
+.languages{display:flex;align-items:center;gap:10px}
+.languages select{flex:1;min-width:0}
+button{border:0;border-radius:10px;padding:13px;cursor:pointer}
+.primary{background:#6555d9;color:white;width:100%;margin-top:18px;font-size:17px}
+.keyboard{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-top:20px}
+.key{padding:10px 0;background:#f1f1f8;font-size:14px}
+.space{grid-column:span 8}
+@media(max-width:480px){main{margin:10px auto;padding:12px}.panel{padding:15px}.key{font-size:11px}}
+</style>
+</head>
+<body>
+<main>
+<h1>🌐 LinguaKey AI</h1>
+<p class="sub">AI Multilingual Translation Keyboard</p>
+<div class="panel">
+<label>选择翻译语言</label>
+<div class="languages">
+<select id="from">
+<option value="zh">中文</option>
+<option value="ko">한국어</option>
+<option value="en">English</option>
+<option value="ja">日本語</option>
+</select>
+<button onclick="swap()">⇄</button>
+<select id="to">
+<option value="ko">한국어</option>
+<option value="zh">中文</option>
+<option value="en">English</option>
+<option value="ja">日本語</option>
+</select>
+</div>
+<label>输入内容</label>
+<textarea id="input" placeholder="在这里输入需要翻译的文字..."></textarea>
+<div class="keyboard" id="keyboard"></div>
+<button class="primary" onclick="translateText()">✨ AI 翻译</button>
+<label>翻译结果</label>
+<textarea id="output" readonly placeholder="翻译结果将在这里显示"></textarea>
+<button class="primary" onclick="copyText()">复制翻译结果</button>
+</div>
+</main>
+<script>
+const input=document.getElementById("input");
+const output=document.getElementById("output");
+const keyboard=document.getElementById("keyboard");
+"QWERTYUIOPASDFGHJKLZXCVBNM".split("").forEach(k=>{
+ const b=document.createElement("button");
+ b.className="key";b.textContent=k;
+ b.onclick=()=>{input.value+=k.toLowerCase();input.focus()};
+ keyboard.appendChild(b);
+});
+const space=document.createElement("button");
+space.className="key space";space.textContent="Space";
+space.onclick=()=>input.value+=" ";
+keyboard.appendChild(space);
+const back=document.createElement("button");
+back.className="key";back.textContent="⌫";
+back.style.gridColumn="span 2";
+back.onclick=()=>input.value=input.value.slice(0,-1);
+keyboard.appendChild(back);
+function swap(){
+ const a=document.getElementById("from");
+ const b=document.getElementById("to");
+ [a.value,b.value]=[b.value,a.value];
+}
+async function translateText(){
+ const text=input.value.trim();
+ if(!text){alert("请先输入文字");return}
+ output.value="正在翻译...";
+ try{
+  const response=await fetch("/api/translate",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({
+    text,
+    from:document.getElementById("from").value,
+    to:document.getElementById("to").value
+   })
+  });
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||"服务器错误");
+  output.value=data.translation||data.translatedText||"未收到翻译结果";
+ }catch(e){output.value="翻译失败："+e.message}
+}
+async function copyText(){
+ if(!output.value)return;
+ try{
+  await navigator.clipboard.writeText(output.value);
+  alert("复制成功！");
+ }catch(e){output.select();alert("请手动复制选中的文字")}
+}
+</script>
+</body>
+</html>
